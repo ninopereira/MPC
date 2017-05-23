@@ -67,22 +67,12 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
 
 
 void LocalToGlobal(double& x_land, double& y_land, double x_0, double y_0, double yaw_0){
-    // NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
-    //   according to the MAP'S coordinate system. You will need to transform between the two systems.
-    //   Keep in mind that this transformation requires both rotation AND translation (but no scaling).
-    //   The following is a good resource for the theory:
-    //   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
-    //   and the following is a good resource for the actual equation to implement (look at equation
-    //   3.33. Note that you'll need to switch the minus sign in that equation to a plus to account
-    //   for the fact that the map's y-axis actually points downwards.)
-    //   http://planning.cs.uiuc.edu/node99.html
     double x_new = x_land * cos(yaw_0) - y_land * sin(yaw_0) + x_0;
     double y_new = x_land * sin(yaw_0) + y_land * cos(yaw_0) + y_0;
 
     x_land = x_new;
     y_land = y_new;
 }
-
 
 /**
     Converts global point coordinates to local coordinates
@@ -126,6 +116,7 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];   // x global coordinates of the trajectory
           vector<double> ptsy = j[1]["ptsy"];   // y global coordinates of the trajectory
+
           double px = j[1]["x"];                // current global x position
           double py = j[1]["y"];                // current global y position
           double psi = j[1]["psi"];             // current global psi
@@ -149,35 +140,33 @@ int main() {
             next_y_vals.push_back(y_local);
           }
 
+          Eigen::VectorXd ptsx_local = Eigen::VectorXd::Map(next_x_vals.data(),next_x_vals.size());
+          Eigen::VectorXd ptsy_local = Eigen::VectorXd::Map(next_y_vals.data(),next_y_vals.size());
+          //Display the MPC predicted trajectory
+          std::vector<double> mpc_x_vals;
+          std::vector<double> mpc_y_vals;
+
           // fit a polynomial to the local reference trajectory
+          auto coeffs = polyfit(ptsx_local, ptsy_local, 3); // fit ref traj to 3rd degree polynomial
+          // The cross track error is calculated by evaluating at polynomial at x, f(x)
+          // and subtracting y.
+          double cte = polyeval(coeffs, 0) - py;
+          // Due to the sign starting at 0, the orientation error is -f'(x).
+          // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
+          double epsi = -atan(coeffs[1]);
 
-          // calculate cte (cross track error)
 
-          /*
-          * TODO: Calculate steeering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi; // x, y and psi are zero in the local coordinate system
 
-          double steer_value;
-          double throttle_value;
+          auto vars = mpc.Solve(state, coeffs, mpc_x_vals, mpc_y_vals);
+
+          double steer_value = vars[6];
+          double throttle_value = vars[7];
 
           json msgJson;
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = -steer_value;
           msgJson["throttle"] = throttle_value;
-
-          //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
-
-          mpc_x_vals.push_back(3);
-          mpc_x_vals.push_back(6);
-          mpc_x_vals.push_back(9);
-
-          mpc_y_vals.push_back(1);
-          mpc_y_vals.push_back(2);
-          mpc_y_vals.push_back(3);
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
