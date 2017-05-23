@@ -1,6 +1,37 @@
 # CarND-Controls-MPC
 Self-Driving Car Engineer Nanodegree Program
 
+
+## Detailed Model
+
+state: we use a simplified model (bicycle model) which stores the state of the car i.e. its pose (x,y,yaw) and speed (v) as well as the crost talk error (cte) and the orientation error (error_psi); 
+
+actuators: as acuators we have the steering angle (delta) and throttle.
+
+update equations:
+  x_new = x + v*cos(psi)*dt;
+  y_new = y + v*sin(psi)*dt;
+  psi_new = psi + v/Lf*delta*dt;
+  v_new = v + a*dt;
+  cte_new = cte + v*sin(error_psi)*dt;
+  error_psi_new = error_psi + v/Lf*delta*dt
+
+## Timestep Length and Frequency
+
+As reported by [Kong et al](Kong, Jason, et al. "Kinematic and dynamic vehicle models for autonomous driving control design." Intelligent Vehicles Symposium (IV), 2015 IEEE. IEEE, 2015.) the bicycle kinematic model can be applied for controlling a car at relatively low speeds. Also they showed that in the case of this particular model a lower update frequency actually produce better results. In my experiments by changing the update period I could verify that as well. E.g. for 40mph a period of 0.2 and 8 steps are good parameters for the controller.
+After some tunnig I was able to keep the car on the track at 65mph using 0.1s for update period and 8 steps. It is important to notice that increasing the number of steps beyond the reference trajectory is not desirable as the optimization will make the car go out of track.
+
+## Polynomial Fitting and MPC Preprocessing
+
+The reference trajectory was converted to local coordinates and then fitted with a 3rd degree polinomial equation.
+
+The cross talk error and orientation error were then calculated given the polynomial.
+
+## Model Predictive Control with Latency
+
+The simulator uses a 100ms latency.
+One way we could take this into account is to apply the next actuation instead of the current one.
+
 ---
 
 ## Dependencies
