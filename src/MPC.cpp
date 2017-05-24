@@ -6,7 +6,7 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 8;       // same as paper
+size_t N = 11;       // same as paper
 double dt = 0.1;    // same as paper
 
 // This value assumes the model presented in the classroom is used.
@@ -24,7 +24,7 @@ const double Lf = 2.67;
 // The reference velocity is set to 40 mph.
 double ref_cte = 0;
 double ref_epsi = 0;
-double ref_v = 65;
+double ref_v = 40;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -59,16 +59,18 @@ class FG_eval {
       fg[0] += CppAD::pow(vars[v_start + i] - ref_v, 2);
     }
 
+    double steering_change_penalty = 50;
+    double throttle_change_penalty = 1.5;
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++) {
-      fg[0] += 100*CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += CppAD::pow(vars[a_start + i], 2);
+      fg[0] += steering_change_penalty*CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += throttle_change_penalty*CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += 100*CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
-      fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
+      fg[0] += steering_change_penalty*CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += throttle_change_penalty*CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
     //
@@ -191,8 +193,8 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs,
   // degrees (values in radians).
   // NOTE: Feel free to change this to something else.
   for (int i = delta_start; i < a_start; i++) {
-    vars_lowerbound[i] = -45*M_PI/180;//0.436332;
-    vars_upperbound[i] = 45*M_PI/180;//0.436332;
+    vars_lowerbound[i] = -25*M_PI/180;//0.436332;
+    vars_upperbound[i] = 25*M_PI/180;//0.436332;
   }
 
   // Acceleration/decceleration upper and lower limits.
@@ -263,5 +265,5 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs,
   return {solution.x[x_start + 1],   solution.x[y_start + 1],
           solution.x[psi_start + 1], solution.x[v_start + 1],
           solution.x[cte_start + 1], solution.x[epsi_start + 1],
-          solution.x[delta_start],   solution.x[a_start]};
+          solution.x[delta_start], solution.x[a_start]};
 }

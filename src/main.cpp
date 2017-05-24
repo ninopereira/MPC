@@ -9,6 +9,7 @@
 #include "MPC.h"
 #include "json.hpp"
 
+#define LATENCY 100
 // for convenience
 using json = nlohmann::json;
 
@@ -121,7 +122,8 @@ int main() {
           double py = j[1]["y"];                // current global y position
           double psi = j[1]["psi"];             // current global psi
           double v = j[1]["speed"];             // current speed
-
+          double steering_angle = j[1]["steering_angle"]; // current steering angle
+          double throttle = j[1]["throttle"]; // current steering angle
 
           // Convert referencce trajectory points to local coordinate system:
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
@@ -150,11 +152,16 @@ int main() {
           auto coeffs = polyfit(ptsx_local, ptsy_local, 3); // fit ref traj to 3rd degree polynomial
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
-          double cte = polyeval(coeffs, 0) - py;
-          // Due to the sign starting at 0, the orientation error is -f'(x).
-          // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double epsi = -atan(coeffs[1]);
 
+          // include latency: get predicted pose in the future
+          const double latency = LATENCY/1000; //value in seconds
+          double new_x = 0 + v*latency;
+
+          double cte = polyeval(coeffs, new_x)-0; //py in local coord is 0
+          // Due to the sign starting at 0, the orientation error is -f'(x).
+          // derivative of coeffs[0] + coeffs[1] * x + coeffs[2] * x*x + coeffs[3] * x*x*x
+          // -> coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x
+          double epsi = -atan(coeffs[1]+2*coeffs[2]*new_x+3*coeffs[3]*pow(new_x,2));
 
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi; // x, y and psi are zero in the local coordinate system
@@ -191,7 +198,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(LATENCY));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

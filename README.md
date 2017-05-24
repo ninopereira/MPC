@@ -18,7 +18,7 @@ update equations:
 
 ## Timestep Length and Frequency
 
-As reported by [Kong et al](Kong, Jason, et al. "Kinematic and dynamic vehicle models for autonomous driving control design." Intelligent Vehicles Symposium (IV), 2015 IEEE. IEEE, 2015.) the bicycle kinematic model can be applied for controlling a car at relatively low speeds. Also they showed that in the case of this particular model a lower update frequency actually produce better results. In my experiments by changing the update period I could verify that as well. E.g. for 40mph a period of 0.2 and 8 steps are good parameters for the controller.
+As reported by [Kong et al](Kong, Jason, et al. "Kinematic and dynamic vehicle models for autonomous driving control design." Intelligent Vehicles Symposium (IV), 2015 IEEE. IEEE, 2015.) the bicycle kinematic model can be applied for controlling a car at relatively low speeds. Also they showed that in the case of this particular model a lower update frequency actually produce better results. In my experiments by changing the update period I could verify that as well. E.g. for 40mph a period of 0.1 and 11 steps are good parameters for the controller.
 After some tunnig I was able to keep the car on the track at 65mph using 0.1s for update period and 8 steps. It is important to notice that increasing the number of steps beyond the reference trajectory is not desirable as the optimization will make the car go out of track.
 
 ## Polynomial Fitting and MPC Preprocessing
@@ -30,7 +30,13 @@ The cross talk error and orientation error were then calculated given the polyno
 ## Model Predictive Control with Latency
 
 The simulator uses a 100ms latency.
-One way we could take this into account is to apply the next actuation instead of the current one.
+One way we could take this into account is to update the local x value with the future value (according to latency) and calculate the cross track error and orientation error for the predicted pose in future.
+
+  double new_x = 0 + v*latency;
+
+  double cte = polyeval(coeffs, new_x)-0; //py in local coord is 0
+
+  double epsi = -atan(coeffs[1]+2*coeffs[2]*new_x+3*coeffs[3]*pow(new_x,2)); 
 
 ---
 
